@@ -1,19 +1,36 @@
-import React from 'react';
-import Checklist from './components/Checklist';
-import Chatbot from './components/Chatbot';
-import ProgressTracker from './components/ProgressTracker';
-import Personalization from './components/Personalization';
+import React, { useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
 
-function App() {
+import Banner    from './components/Banner';
+import Navbar    from './components/Navbar';
+import Landing   from './components/Landing';
+import Checklist from './components/Checklist';
+import Admin     from './components/Admin';
+import Dashboard from './components/Dashboard';   // ← make sure this import is here!
+import Users     from './components/DashboardUsers';
+
+/* search context for Navbar + Checklist */
+export const SearchContext = React.createContext({
+  search: '',
+  setSearch: () => {},
+});
+
+export default function App() {
+  const [search, setSearch] = useState('');
+
   return (
-    <div className="min-h-screen bg-gradient-to-r from-[#0127a2] to-[#ff3443] flex flex-col items-center py-10 space-y-6">
-      <Chatbot />
-      <ProgressTracker />
-      <Checklist />
-      <Personalization />
-    </div>
+    <SearchContext.Provider value={{ search, setSearch }}>
+      <Banner />
+      <Navbar />
+
+      {/* 48 px banner + 64 px navbar = 112 px → pt-28 */}
+      <div className="pt-28">
+        <Routes>
+          <Route path="/"           element={<Landing   />} />
+          <Route path="/checklist"  element={<Checklist />} />
+          <Route path="/dashboard"  element={<Dashboard />} />  {/* ← THIS route */}
+        </Routes>
+      </div>
+    </SearchContext.Provider>
   );
 }
-
-export default App;
-
