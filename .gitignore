@@ -1,0 +1,11 @@
+﻿# Node
+node_modules/
+npm-debug.log*
+.env
+
+# Vite / React build output
+client/dist/
+client/.vite/
+
+# Postgres dumps or temp SQL
+*.sql
