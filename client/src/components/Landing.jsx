@@ -1,11 +1,19 @@
-import React from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../AuthContext';
+import LoginModal from './LoginModal';
 import mentorIcon from '../assets/mentor-icon.png';
 
 export default function Landing() {
-  const navigate = useNavigate();
+const [showLogin, setShowLogin] = useState(false);
+const { token } = useContext(AuthContext);
+const navigate = useNavigate();
+  /* if already signed in, jump to checklist */
+  useEffect(() => {
+    if (token) navigate('/checklist', { replace: true });
+  }, [token, navigate]);
 
-  return (
+    return (
     <div className="min-h-screen bg-gradient-to-r from-blue-700 to-red-500 flex items-center justify-center">
       <div className="bg-white bg-opacity-90 rounded-lg shadow-2xl p-10 max-w-xl mx-auto text-center animate-fade-in">
         <img src={mentorIcon} alt="Mentor Icon" className="mx-auto mb-6 h-20 animate-bounce" />
@@ -16,12 +24,16 @@ export default function Landing() {
           Your ultimate onboarding experience awaits. 
         </p>
         <button
-          onClick={() => navigate('/checklist')}
-          className="bg-blue-600 text-white px-6 py-2 rounded-full shadow hover:bg-blue-700 transition duration-300 transform hover:scale-105"
+          className="bg-blue-600 text-white px-6 py-2 rounded-full shadow hover:bg-blue-700 transition"
+          onClick={() => {
+           if (token) navigate('/checklist');
+            else setShowLogin(true);
+         }}
         >
           Get Started Now
         </button>
       </div>
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 }

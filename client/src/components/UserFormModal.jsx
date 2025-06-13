@@ -8,16 +8,21 @@ export default function UserFormModal({ mode, initial, onSave, onCancel }) {
   );
 
   useEffect(() => {
-    fetch('/api/roles').then(r => r.json()).then(setRoles);
+    fetch('/api/roles', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+  })
+    .then(r => r.json()).then(setRoles);
   }, []);
 
   const submit = async e => {
     e.preventDefault();
-    const body = { ...form, role_id: form.role_id || null };
+    const body = { ...form, role_id: form.role_id ?? null, is_admin: !!form.is_admin };
     const url  = mode === 'add' ? '/api/users' : `/api/users/${initial.id}`;
     const res  = await fetch(url, {
       method: mode === 'add' ? 'POST' : 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+       },
       body: JSON.stringify(body),
     });
     if (!res.ok) return onSave(null);
@@ -69,7 +74,14 @@ export default function UserFormModal({ mode, initial, onSave, onCancel }) {
               {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
-
+        <div className="flex items-center gap-2">
+        <input
+            type="checkbox"
+            checked={form.is_admin || false}
+            onChange={e => setForm({ ...form, is_admin: e.target.checked })}
+        />
+        <label className="text-sm">Administrator</label>
+        </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onCancel} className="px-4 py-1 border rounded">Cancel</button>
             <button type="submit" className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">

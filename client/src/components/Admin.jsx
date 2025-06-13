@@ -5,7 +5,7 @@ import clsx from 'clsx';
 /* fixed lists (updated labels) */
 const weeks      = Array.from({ length: 12 }, (_, i) => i + 1);
 const categories = ['Resource', 'KPI & Task-Based', 'Redstone Moment'];
-const formats    = ['Self-Led', 'With Mentor', 'With Regional', 'With Home Base'];
+const formats    = ['Self-Led', 'With Mentor', 'With Leader', 'With Home Base'];
 const assignees  = ['Self', 'Mentor', 'Leader', 'Home Base'];
 
 export default function Admin() {

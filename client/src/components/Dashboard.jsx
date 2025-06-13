@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
-import DashboardTasks from './DashboardTasks';
-import DashboardUsers from './DashboardUsers';
+import React, { useState, useContext } from 'react';
+import Overview        from './Overview';
+import DashboardTasks  from './DashboardTasks';
+import DashboardUsers  from './DashboardUsers';
+import DashboardRoles  from './DashboardRoles';
+import { AuthContext } from '../AuthContext';
 
 const tabs = [
   { key: 'overview', label: 'Overview' },
   { key: 'tasks',    label: 'All Tasks' },
   { key: 'users',    label: 'Users' },
+  { key: 'roles',    label: 'Roles' },
 ];
 
 export default function Dashboard() {
-  const [tab, setTab] = useState('tasks');   // default Tasks
+  const [tab, setTab] = useState('overview');
+  const { user }      = useContext(AuthContext);
+
+  if (!user?.is_admin) return <p className="p-6 text-red-600">Unauthorized</p>;
 
   return (
     <div className="max-w-6xl mx-auto mt-8 p-6 bg-white shadow rounded">
@@ -32,16 +39,11 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* tab content */}
-      {tab === 'overview' && (
-        <div className="p-6 text-gray-600">
-          <p className="mb-2">Overview coming soon – aggregate charts, role metrics, and more.</p>
-        </div>
-      )}
-
-      {tab === 'tasks' && <DashboardTasks />}
-
-      {tab === 'users' && <DashboardUsers />}
+      {/* content */}
+      {tab === 'overview' && <Overview />}
+      {tab === 'tasks'    && <DashboardTasks />}
+      {tab === 'users'    && <DashboardUsers />}
+      {tab === 'roles'    && <DashboardRoles />}
     </div>
   );
 }

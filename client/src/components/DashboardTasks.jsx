@@ -5,104 +5,98 @@ import {
 } from 'lucide-react';
 import TaskFormModal from './TaskFormModal';
 
-/* ────── helper to build 'All' dropdowns ────── */
-const buildOptions = (rows, key) =>
-  ['All', ...new Set(rows.map(r => r[key]).filter(Boolean))];
+/* helper to build dropdowns safely */
+const buildOptions = (list, key) =>
+  ['All', ...new Set((Array.isArray(list) ? list : [])
+    .map(r => r[key]).filter(Boolean))];
 
-/* ───────────────── component ──────────────── */
-export default function Dashboard() {
-  /* data */
-  const [rows, setRows] = useState([]);
+export default function DashboardTasks() {
+  const [rows, setRows]   = useState([]);
   const [loading, setLoading] = useState(true);
 
-  /* sort */
-  const [sortCol, setSort] = useState('week_num');
-  const [dir, setDir] = useState('asc');
-
-  /* filters */
-  const [weekFilter,     setWF] = useState('All');
-  const [catFilter,      setCF] = useState('All');
-  const [formatFilter,   setFF] = useState('All');
-  const [ownerFilter,    setOF] = useState('All');
-  const [roleFilter,     setRL] = useState('All');
-  const [titleSearch,    setTS] = useState('');
+  /* sort + filter state */
+  const [sortCol, setSortCol] = useState('week_num');
+  const [direction, setDir]   = useState('asc');
+  const [filters, setFilter]  = useState({
+    week:'All', cat:'All', fmt:'All', own:'All', role:'All', text:'',
+  });
 
   /* modal state */
-  const [modal, setModal] = useState(null);   // null | {mode:'add'} | {mode:'edit',row}
+  const [modal, setModal] = useState(null);
 
   /* initial fetch */
   useEffect(() => {
-    (async () => {
-      const data = await fetch('/api/tasks/all').then(r => r.json());
-      setRows(data);
-      setLoading(false);
-    })();
+    fetch('/api/tasks/all', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        console.log('DEBUG typeof', typeof data, Array.isArray(data));
+        setRows(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(err => console.error('fetch error', err));
   }, []);
 
-  /* derived dropdown option lists */
-  const weekOptions   = React.useMemo(() => buildOptions(rows, 'week_num'), [rows]);
-  const catOptions    = React.useMemo(() => buildOptions(rows, 'category'), [rows]);
-  const formatOptions = React.useMemo(() => buildOptions(rows, 'format'), [rows]);
-  const ownerOptions  = React.useMemo(() => buildOptions(rows, 'assigned_to'), [rows]);
-  const roleOptions   = React.useMemo(
-    () => ['All', ...new Set(rows.flatMap(r => r.roles.split(', ')))],
-    [rows]);
+  /* dropdown options */
+  const weekOpts = buildOptions(rows, 'week_num');
+  const catOpts  = buildOptions(rows, 'category');
+  const fmtOpts  = buildOptions(rows, 'format');
+  const ownOpts  = buildOptions(rows, 'assigned_to');
+  const roleOpts = [
+    'All',
+    ...new Set(
+      (Array.isArray(rows) ? rows : []).reduce((acc, r) => {
+        if (r.roles) acc.push(...r.roles.split(', '));
+        return acc;
+      }, [])
+    ),
+  ];
 
   /* filtered + sorted rows */
   const visible = rows
-    .filter(r => (weekFilter   === 'All' || r.week_num     === Number(weekFilter)))
-    .filter(r => (catFilter    === 'All' || r.category     === catFilter))
-    .filter(r => (formatFilter === 'All' || r.format       === formatFilter))
-    .filter(r => (ownerFilter  === 'All' || r.assigned_to  === ownerFilter))
-    .filter(r => (roleFilter   === 'All' || r.roles.split(', ').includes(roleFilter)))
-    .filter(r => r.title.toLowerCase().includes(titleSearch.toLowerCase()))
+    .filter(r => filters.week === 'All' || r.week_num    === Number(filters.week))
+    .filter(r => filters.cat  === 'All' || r.category    === filters.cat)
+    .filter(r => filters.fmt  === 'All' || r.format      === filters.fmt)
+    .filter(r => filters.own  === 'All' || r.assigned_to === filters.own)
+    .filter(r => filters.role === 'All' || r.roles.split(', ').includes(filters.role))
+    .filter(r => r.title.toLowerCase().includes(filters.text.toLowerCase()))
     .sort((a, b) => {
-      const d = dir === 'asc' ? 1 : -1;
-      if (a[sortCol] < b[sortCol]) return -1 * d;
-      if (a[sortCol] > b[sortCol]) return  1 * d;
-      return 0;
+      const d = direction === 'asc' ? 1 : -1;
+      return a[sortCol] < b[sortCol] ? -1 * d : a[sortCol] > b[sortCol] ? 1 * d : 0;
     });
 
-  /* sort helpers */
+  const toggleSort = col => {
+    if (col === sortCol) setDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortCol(col); setDir('asc'); }
+  };
   const sortIcon = col => (
     <ChevronsUpDown size={14} className={`inline ml-1 ${col === sortCol ? 'text-blue-600' : 'text-gray-300'}`} />
   );
-  const toggleSort = col => {
-    if (col === sortCol) setDir(d => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSort(col); setDir('asc'); }
-  };
 
-  /* delete */
   const remove = async id => {
     if (!window.confirm('Delete this task?')) return;
-    const ok = await fetch(`/api/tasks/${id}`, { method: 'DELETE' }).then(r => r.ok);
+    const ok = await fetch(`/api/tasks/${id}`, { method:'DELETE',
+      headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.ok);
     if (ok) {
       setRows(rows.filter(r => r.id !== id));
-      toast.success('Task deleted', { duration: 1500, position: 'top-center' });
+      toast.success('Task deleted');
     } else toast.error('Delete failed');
   };
 
-  /* modal save */
-  const handleSave = (newRow, err) => {
+  const onSave = task => {
     setModal(null);
-    if (!newRow) { toast.error(err); return; }
-
-    if (modal.mode === 'add') setRows([...rows, newRow]);
-    else setRows(rows.map(r => (r.id === newRow.id ? newRow : r)));
+    if (!task) { toast.error('Save failed'); return; }
+    setRows(modal.mode==='add' ? [...rows, task] : rows.map(r => r.id===task.id?task:r));
   };
 
   if (loading) return <p className="p-6">Loading…</p>;
 
   return (
-    <div className="max-w-6xl mx-auto mt-8 p-6 bg-white shadow rounded relative">
-      <h1 className="text-2xl font-bold mb-4">Admin Dashboard — All Tasks</h1>
-
-      {/* add button */}
-      <button
-        onClick={() => setModal({ mode: 'add' })}
-        className="absolute top-6 right-6 flex items-center gap-1 text-blue-600 hover:text-blue-800"
-      >
-        <PlusCircle size={18} /> Add Task
+    <div className="relative">
+      <button onClick={() => setModal({ mode:'add' })}
+              className="absolute -top-12 right-0 flex items-center gap-1 text-blue-600 hover:text-blue-800">
+        <PlusCircle size={18}/> Add Task
       </button>
 
       {/* filter bar */}
@@ -110,25 +104,14 @@ export default function Dashboard() {
         <input
           placeholder="Search title…"
           className="border rounded px-2 py-1 col-span-2 md:col-span-1"
-          value={titleSearch}
-          onChange={e => setTS(e.target.value)}
+          value={filters.text}
+          onChange={e => setFilter({ ...filters, text:e.target.value })}
         />
-
-        <select value={weekFilter} onChange={e => setWF(e.target.value)} className="border rounded px-2 py-1">
-          {weekOptions.map(o => <option key={o}>{o}</option>)}
-        </select>
-        <select value={catFilter}  onChange={e => setCF(e.target.value)}  className="border rounded px-2 py-1">
-          {catOptions.map(o => <option key={o}>{o}</option>)}
-        </select>
-        <select value={formatFilter} onChange={e => setFF(e.target.value)} className="border rounded px-2 py-1">
-          {formatOptions.map(o => <option key={o}>{o}</option>)}
-        </select>
-        <select value={ownerFilter} onChange={e => setOF(e.target.value)} className="border rounded px-2 py-1">
-          {ownerOptions.map(o => <option key={o}>{o}</option>)}
-        </select>
-        <select value={roleFilter} onChange={e => setRL(e.target.value)} className="border rounded px-2 py-1">
-          {roleOptions.map(o => <option key={o}>{o}</option>)}
-        </select>
+        <select value={filters.week} onChange={e=>setFilter({...filters,week:e.target.value})} className="border rounded px-2 py-1">{weekOpts.map(o=> <option key={o}>{o}</option>)}</select>
+        <select value={filters.cat}  onChange={e=>setFilter({...filters,cat: e.target.value})} className="border rounded px-2 py-1">{catOpts.map(o=>  <option key={o}>{o}</option>)}</select>
+        <select value={filters.fmt}  onChange={e=>setFilter({...filters,fmt: e.target.value})} className="border rounded px-2 py-1">{fmtOpts.map(o=>  <option key={o}>{o}</option>)}</select>
+        <select value={filters.own}  onChange={e=>setFilter({...filters,own: e.target.value})} className="border rounded px-2 py-1">{ownOpts.map(o=>  <option key={o}>{o}</option>)}</select>
+        <select value={filters.role} onChange={e=>setFilter({...filters,role:e.target.value})} className="border rounded px-2 py-1">{roleOpts.map(o=> <option key={o}>{o}</option>)}</select>
       </div>
 
       {/* table */}
@@ -136,12 +119,12 @@ export default function Dashboard() {
         <table className="w-full border text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th onClick={() => toggleSort('week_num')} className="px-3 py-2 border cursor-pointer">Week {sortIcon('week_num')}</th>
-              <th onClick={() => toggleSort('title')}    className="px-3 py-2 border cursor-pointer text-left">Title {sortIcon('title')}</th>
+              <th onClick={()=>toggleSort('week_num')} className="px-3 py-2 border cursor-pointer">Week {sortIcon('week_num')}</th>
+              <th onClick={()=>toggleSort('title')}    className="px-3 py-2 border cursor-pointer text-left">Title {sortIcon('title')}</th>
               <th className="px-3 py-2 border">Category</th>
               <th className="px-3 py-2 border">Format</th>
               <th className="px-3 py-2 border">Owner</th>
-              <th onClick={() => toggleSort('roles')}    className="px-3 py-2 border cursor-pointer">Roles {sortIcon('roles')}</th>
+              <th onClick={()=>toggleSort('roles')}    className="px-3 py-2 border cursor-pointer">Roles {sortIcon('roles')}</th>
               <th className="px-3 py-2 border text-center">Link</th>
               <th className="px-3 py-2 border text-center">Actions</th>
             </tr>
@@ -151,20 +134,22 @@ export default function Dashboard() {
               <tr key={r.id} className="odd:bg-gray-50">
                 <td className="align-top px-3 py-2 border text-center">{r.week_num}</td>
                 <td className="align-top px-3 py-2 border whitespace-nowrap max-w-xs overflow-hidden text-ellipsis" title={r.title}>{r.title}</td>
-                <td className="align-top px-3 py-2 border text-center whitespace-nowrap max-w-xs overflow-hidden text-ellipsis" title={r.category}>{r.category}</td>
-                <td className="align-top px-3 py-2 border text-center whitespace-nowrap max-w-xs overflow-hidden text-ellipsis" title={r.format}>{r.format}</td>
-                <td className="align-top px-3 py-2 border text-center whitespace-nowrap max-w-xs overflow-hidden text-ellipsis" title={r.assigned_to}>{r.assigned_to}</td>
+                <td className="align-top px-3 py-2 border text-center">{r.category}</td>
+                <td className="align-top px-3 py-2 border text-center">{r.format}</td>
+                <td className="align-top px-3 py-2 border text-center">{r.assigned_to}</td>
                 <td className="align-top px-3 py-2 border text-center whitespace-nowrap max-w-xs overflow-hidden text-ellipsis" title={r.roles}>{r.roles}</td>
                 <td className="align-top px-3 py-2 border text-center">
                   {r.resource_url && (
                     <a href={r.resource_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
-                      <ExternalLink size={16} />
+                      <ExternalLink size={16}/>
                     </a>
                   )}
                 </td>
                 <td className="align-top px-3 py-2 border text-center flex justify-center gap-3">
-                  <Pencil size={16} className="text-blue-600 cursor-pointer hover:text-blue-800" onClick={() => setModal({ mode:'edit', row:r })}/>
-                  <Trash2 size={16} className="text-red-600 cursor-pointer hover:text-red-800"  onClick={() => remove(r.id)}/>
+                  <Pencil size={16} className="text-blue-600 cursor-pointer hover:text-blue-800"
+                          onClick={()=>setModal({mode:'edit',row:r})}/>
+                  <Trash2 size={16} className="text-red-600 cursor-pointer hover:text-red-800"
+                          onClick={()=>remove(r.id)}/>
                 </td>
               </tr>
             ))}
@@ -172,12 +157,11 @@ export default function Dashboard() {
         </table>
       </div>
 
-      {/* modal */}
       {modal && (
         <TaskFormModal
           mode={modal.mode}
           initial={modal.row}
-          onSave={handleSave}
+          onSave={onSave}
           onCancel={() => setModal(null)}
         />
       )}

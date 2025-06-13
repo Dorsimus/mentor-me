@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
 const categories = ['Resource', 'KPI & Task-Based', 'Redstone Moment'];
-const formats    = ['Self-Led', 'With Mentor', 'With Regional', 'With Home Base'];
+const formats    = ['Self-Led', 'With Mentor', 'With Leader', 'With Home Base'];
 const owners     = ['Self', 'Mentor', 'Leader', 'Home Base'];
 
 export default function TaskFormModal({ mode, initial, onSave, onCancel }) {
