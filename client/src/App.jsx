@@ -6,6 +6,7 @@ import Navbar     from './components/Navbar';
 import Landing    from './components/Landing';
 import MyProgress from './components/MyProgress';
 import Checklist  from './components/Checklist';
+import MyChecklists  from './components/MyChecklists';
 import Dashboard  from './components/Dashboard';
 import Login      from './components/Login';
 
@@ -36,7 +37,8 @@ export default function App() {
         <div className="pt-28">
           <Routes>
             <Route path="/login" element={<Login />} />
-
+            <Route path="/checklists"          element={<MyChecklists />} />
+            <Route path="/checklists/:id"      element={<Checklist />} />
             <Route path="/" element={<Landing />} />
 
             <Route
